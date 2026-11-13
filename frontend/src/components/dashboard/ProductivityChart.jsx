@@ -56,10 +56,51 @@ function ProductivityChart({ data =[], total = 0, previousTotal = 0, loading = f
                 <div className="h-40 w-full min-w-0 flex-1" role="img"
                 aria-label={`Tasks completed per day. ${summary}`}
                 >
-
-                </div>
-
-            </div>
-        </section>
-      )
+                    {loading ? (
+            <div className="h-full w-full animate-pulse rounded-lg bg-surface-2" />
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={data} margin={{ top: 20, right: 8, left: 8, bottom: 0 }}>
+                <XAxis
+                  dataKey="day"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: "var(--muted)", fontSize: 12 }}
+                />
+                <Tooltip
+                  cursor={{ fill: "var(--surface-2)" }}
+                  contentStyle={{
+                    background: "var(--surface)",
+                    border: "1px solid var(--border)",
+                    borderRadius: 8,
+                    color: "var(--text)",
+                    boxShadow: "var(--shadow-card)",
+                  }}
+                  labelStyle={{ color: "var(--muted)" }}
+                  itemStyle={{ color: "var(--text)" }}
+                  formatter={(value) => [value, "Completed"]}
+                />
+                <Bar dataKey="count" radius={[6, 6, 0, 0]} minPointSize={4} maxBarSize={44}>
+                  {data.map((entry, index) => (
+                    <Cell
+                      key={entry.date}
+                      fill={index === data.length - 1 ? "var(--chart-active)" : "var(--chart-muted)"}
+                    />
+                  ))}
+                  <LabelList
+                    dataKey="count"
+                    position="top"
+                    fill="var(--muted)"
+                    fontSize={11}
+                  />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+      </div>
+    </section>
+  );
 }
+
+export default ProductivityChart;
