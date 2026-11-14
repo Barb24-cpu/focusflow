@@ -1,4 +1,4 @@
-~import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import * as taskService from "../services/taskService";
 
 
@@ -84,3 +84,121 @@ export function useTasks({ autoLoad = true } = {}) {
   useEffect(() => {
     if (autoLoad) loadTasks();
   }, [autoLoad, loadTasks]);
+
+
+  // The create / edit / remove functions throw on failure so a form can show the error.
+  const addTask = useCallback(async (payload) => {
+    const data = await taskService.createTask(payload);
+    const task = normalizeTask(data?.task ?? data);
+    setTasks((prev) => [task, ...prev]);
+    return task;
+  }, []);
+
+  const editTask = useCallback(async (id, changes) => {
+    const data = await taskService.updateTask(id, changes);
+    const fromServer = data?.task ?? data;
+    setTasks((prev) =>
+      prev.map((t) =>
+        t.id === id
+          ? normalizeTask(fromServer?.id ? fromServer : { ...t, ...changes })
+          : t
+      )
+    );
+  }, []);
+
+  const removeTask = useCallback(async (id) => {
+    await taskService.deleteTask(id);
+    setTasks((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
+  // Used by the dashboard checkbox. Errors go into `error` instead of throwing.
+  const toggleComplete = useCallback(
+    async (task) => {
+      try {
+        await editTask(task.id, {
+          status: task.status === "done" ? "todo" : "done",
+        });
+      } catch (err) {
+        setError(toMessage(err));
+      }
+    },
+    [editTask]
+  );
+
+  /* ---------- numbers for the dashboard ---------- */
+  const derived = useMemo(() => {
+    const now = new Date();
+    const todayKey = toDateKey(now);
+    const isOpen = (t) => t.status !== "done";
+
+    const dueToday = tasks.filter((t) => t.dueDate === todayKey);
+    const overdueTasks = tasks.filter(
+      (t) => isOpen(t) && t.dueDate && t.dueDate < todayKey
+    );
+    const doneToday = tasks.filter(
+      (t) => t.status === "done" && t.completedDate === todayKey
+    );
+
+    // Completed-per-day counts for the last 14 days (7 this week + 7 before)
+    const counts = {};
+    tasks.forEach((t) => {
+      if (t.status === "done" && t.completedDate) {
+        counts[t.completedDate] = (counts[t.completedDate] || 0) + 1;
+      }
+    });
+    const lastDays = Array.from({ length: 14 }, (_, i) =>
+      toDateKey(new Date(now.getFullYear(), now.getMonth(), now.getDate() - (13 - i)))
+    );
+    const sum = (keys) => keys.reduce((total, k) => total + (counts[k] || 0), 0);
+
+    const weeklyActivity = lastDays.slice(7).map((key) => ({
+      date: key,
+      day: parseDateKey(key).toLocaleDateString("en-US", { weekday: "short" }),
+      count: counts[key] || 0,
+    }));
+
+    // "Your priorities today": due today, overdue, or finished today.
+    // Open tasks first, then high -> low priority, then earliest due date.
+    const priorityTasks = tasks
+      .filter(
+        (t) =>
+          t.dueDate === todayKey ||
+          (isOpen(t) && t.dueDate && t.dueDate < todayKey) ||
+          (t.status === "done" && t.completedDate === todayKey)
+      )
+      .sort((a, b) => {
+        if (isOpen(a) !== isOpen(b)) return isOpen(a) ? -1 : 1;
+        const byPriority =
+          (PRIORITY_RANK[a.priority] ?? 1) - (PRIORITY_RANK[b.priority] ?? 1);
+        if (byPriority !== 0) return byPriority;
+        return (a.dueDate || "9999").localeCompare(b.dueDate || "9999");
+      });
+
+    return {
+      stats: {
+        tasksToday: dueToday.length,
+        completedToday: doneToday.length,
+        overdue: overdueTasks.length,
+        completedLast7: sum(lastDays.slice(7)),
+        completedPrev7: sum(lastDays.slice(0, 7)),
+      },
+      overdueTasks,
+      priorityTasks,
+      weeklyActivity,
+    };
+  }, [tasks]);
+
+  return {
+    tasks,
+    loading,
+    error,
+    loadTasks,
+    addTask,
+    editTask,
+    removeTask,
+    toggleComplete,
+    ...derived,
+  };
+}
+
+export default useTasks;
