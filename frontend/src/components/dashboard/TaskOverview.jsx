@@ -86,3 +86,42 @@ function TaskOverview({
           View all tasks <ArrowRight className="h-4 w-4" aria-hidden="true" />
         </Link>
       </div>
+
+
+      
+      {/* Column headings (hidden on phones) */}
+      <div className="grid grid-cols-[auto_1fr_6rem_6rem] gap-3 bg-surface-2 px-4 py-2 text-[0.6875rem] font-semibold uppercase tracking-wider text-muted max-sm:hidden">
+        <span className="w-4" />
+        <span>Task</span>
+        <span>Priority</span>
+        <span>Due</span>
+      </div>
+
+      {loading ? (
+        <ul aria-busy="true" aria-label="Loading tasks">
+          {[0, 1, 2].map((i) => (
+            <li key={i} className="border-t border-border px-4 py-4">
+              <div className="h-4 w-2/3 animate-pulse rounded bg-surface-2" />
+            </li>
+          ))}
+        </ul>
+      ) : error ? (
+        <p role="alert" className="border-t border-border px-5 py-6 text-sm text-danger">
+          {error}
+        </p>
+      ) : rows.length === 0 ? (
+        <p className="border-t border-border px-5 py-6 text-sm text-muted">
+          Nothing due today. Enjoy the space, or plan your next task.
+        </p>
+      ) : (
+        <ul>
+          {rows.map((task) => (
+            <TaskRow key={task.id} task={task} onToggle={onToggle} />
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+export default TaskOverview;
