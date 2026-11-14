@@ -58,3 +58,31 @@ function TaskRow({ task, onToggle }) {
     </li>
   );
 }
+
+
+function TaskOverview({
+  tasks = [],
+  loading = false,
+  error = null,
+  onToggle,
+  limit = 5,
+  viewAllTo = "/tasks",
+}) {
+  const rows = tasks.slice(0, limit);
+
+  return (
+    <section className="card overflow-hidden" aria-labelledby="priorities-heading">
+      <div className="flex items-start justify-between gap-4 p-5 pb-4">
+        <div>
+          <h2 id="priorities-heading" className="text-lg font-semibold text-fg">
+            Your priorities today
+          </h2>
+          <p className="text-sm text-muted">Keep the important things moving.</p>
+        </div>
+        <Link
+          to={viewAllTo}
+          className="inline-flex items-center gap-1 whitespace-nowrap text-sm font-medium text-primary hover:underline"
+        >
+          View all tasks <ArrowRight className="h-4 w-4" aria-hidden="true" />
+        </Link>
+      </div>
