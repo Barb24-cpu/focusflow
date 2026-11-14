@@ -81,3 +81,29 @@ export function AuthProvider({ children }) {
     },
     [refreshUser]
   );
+
+  const logout = useCallback(async () => {
+    try {
+      await authService.logout();
+    } finally {
+      setUser(null); // clear the UI even if the request fails
+    }
+  }, []);
+
+  const value = useMemo(
+    () => ({
+      user,
+      loading,
+      isAuthenticated: Boolean(user),
+      login,
+      register,
+      logout,
+      refreshUser,
+    }),
+    [user, loading, login, register, logout, refreshUser]
+  );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+export default AuthProvider;
