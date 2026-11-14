@@ -37,3 +37,47 @@ export function AuthProvider({ children }) {
       return null;
     }
   }, []);
+
+
+  // On first load, ask Flask whether the session cookie is still valid.
+  useEffect(() => {
+    let ignore = false;
+    authService
+      .getCurrentUser()
+      .then((data) => {
+        if (!ignore) setUser(extractUser(data));
+      })
+      .catch(() => {
+        if (!ignore) setUser(null);
+      })
+      .finally(() => {
+        if (!ignore) setLoading(false);
+      });
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  const login = useCallback(async (credentials) => {
+    try {
+      const data = await authService.login(credentials);
+      const current = extractUser(data);
+      setUser(current);
+      return current;
+    } catch (err) {
+      throw toError(err, "Could not log in. Please try again.");
+    }
+  }, []);
+
+  const register = useCallback(
+    async (details) => {
+      try {
+        await authService.register(details);
+      } catch (err) {
+        throw toError(err, "Could not create your account. Please try again.");
+      }
+      // Works whether or not Flask logs the user in after registering.
+      return refreshUser();
+    },
+    [refreshUser]
+  );
