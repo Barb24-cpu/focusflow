@@ -19,5 +19,30 @@ function StatCard({
 
 
     const valuecolor =
-       tone === "danger" && Number(value) > 0 ? "text-danger" : "text-fg"     
+       tone === "danger" && Number(value) > 0 ? "text-danger" : "text-fg";
+
+
+       return (
+        <div className="card p-5">
+            <div className="flex items-start justify-between gap-3">
+                <p className="text-sm text-muted">{label}</p>
+                {Icon && <Icon className="h-5 w-5 shrink-0 text-muted" aria-hidden="true" />}
+
+            </div>
+
+            <p 
+            className={`mt-3 text-4xl font-semibold tracking-tight ${valueColor}`}
+            aria-busy={loading}
+            >
+                {display}
+
+            </p>
+
+            {helper && <p className="mt-2 text-xs text-muted">{helper}</p>}
+
+        </div>
+       );
 }
+
+
+export default StatCard;
