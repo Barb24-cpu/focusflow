@@ -49,3 +49,6 @@ const taskService = {
 };
 
 export default taskService;
+
+// named exports too, so "import * as taskService" works as well as the default import
+export const { getTasks, createTask, updateTask, deleteTask } = taskService;
