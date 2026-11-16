@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 import {
     TASK_PRIORITIES,
@@ -17,39 +17,17 @@ function TaskForm({
     isSubmitting = false
 }) {
 
-    const [title, setTitle] = useState('');
-    const [description, setDescription] = useState('');
-    const [status, setStatus] = useState('todo');
-    const [priority, setPriority] = useState('medium');
-    const [dueDate, setDueDate] = useState('');
-    const [projectId, setProjectId] = useState('');
+    const [title, setTitle] = useState(initialData?.title || '');
+    const [description, setDescription] = useState(initialData?.description || '');
+    const [status, setStatus] = useState(initialData?.status || 'todo');
+    const [priority, setPriority] = useState(initialData?.priority || 'medium');
+    const [dueDate, setDueDate] = useState(
+        initialData?.due_date ? toInputDateFormat(initialData.due_date) : ''
+    );
+    const [projectId, setProjectId] = useState(
+        initialData?.project_id ? String(initialData.project_id) : ''
+    );
     const [error, setError] = useState('');
-
-
-    // Populate form if editing an existing task
-    useEffect(() => {
-
-        if (initialData) {
-
-            setTitle(initialData.title || '');
-
-            setDescription(initialData.description || '');
-
-            setStatus(initialData.status || 'todo');
-
-            setPriority(initialData.priority || 'medium');
-
-            setDueDate(toInputDateFormat(initialData.due_date));
-
-            setProjectId(
-                initialData.project_id
-                    ? String(initialData.project_id)
-                    : ''
-            );
-
-        }
-
-    }, [initialData]);
 
 
     const handleSubmit = (e) => {
