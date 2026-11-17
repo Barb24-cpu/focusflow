@@ -1,0 +1,69 @@
+:root,
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  /* Surfaces */
+  --bg: #eef2ee;            /* page background */
+  --surface: #ffffff;       /* cards, panels */
+  --surface-2: #f4f7f4;     /* table headers, hover rows, inputs */
+  --border: #dfe6df;
+
+  /* Text */
+  --text: #14231b;
+  --muted: #5d6e64;
+
+  /* Brand (green) */
+  --primary: #1d6b46;
+  --primary-hover: #17573a;
+  --primary-contrast: #ffffff;   /* text on top of --primary */
+  --primary-soft: #e3efdf;       /* tinted card backgrounds */
+  --primary-soft-text: #1d5a3b;
+
+  /* Status colours (priority badges, overdue, errors) */
+  --danger: #a63a29;
+  --danger-soft: #f9e3dd;
+  --warning: #7a4f08;
+  --warning-soft: #f6ecce;
+  --success: #1d6b46;
+  --success-soft: #e3efdf;
+
+  /* Charts */
+  --chart-muted: #b9d4b3;   /* normal bars */
+  --chart-active: #1d6b46;  /* today's bar */
+  --chart-grid: #dfe6df;
+
+  /* Effects */
+  --shadow-card: 0 1px 2px rgb(20 35 27 / 0.06), 0 4px 16px rgb(20 35 27 / 0.04);
+}
+
+/* ---------- DARK THEME ---------- */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #0c1411;
+  --surface: #131e19;
+  --surface-2: #1a2822;
+  --border: #263830;
+
+  --text: #e6efe9;
+  --muted: #98aca1;
+
+  --primary: #4cc38a;
+  --primary-hover: #66d19d;
+  --primary-contrast: #06150e;
+  --primary-soft: #19332a;
+  --primary-soft-text: #7fdcaa;
+
+  --danger: #f4977f;
+  --danger-soft: #3a1f1a;
+  --warning: #e8c06a;
+  --warning-soft: #352b12;
+  --success: #7fdcaa;
+  --success-soft: #19332a;
+
+  --chart-muted: #2f5a47;
+  --chart-active: #4cc38a;
+  --chart-grid: #263830;
+
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4), 0 4px 16px rgb(0 0 0 / 0.25);
+}
