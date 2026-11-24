@@ -1,46 +1,119 @@
+import axios from "axios";
 
-import api from './api';
+const API_BASE = "http://localhost:5000/api/github";
 
-const githubService = {
+const findJwtToken = () => {
+  for (const store of [localStorage, sessionStorage]) {
+    for (let i = 0; i < store.length; i++) {
+      const val = store.getItem(store.key(i));
+      if (val && val.startsWith("eyJ") && val.split(".").length === 3) {
+        return val.replace(/^"|"$/g, "");
+      }
+      try {
+        const parsed = JSON.parse(val);
+        const nested = parsed?.token || parsed?.access_token || parsed?.jwt;
+        if (nested && nested.startsWith("eyJ")) return nested;
+      } catch {}
+    }
+  }
+  return null;
+};
 
-    async connectAccount(token) {
-        const response = await api.post('/github/connect', { token });
+const getAuthConfig = () => {
+  const token = findJwtToken();
+  return {
+    withCredentials: true,
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  };
+};
 
-        return response.data;
-    },
+const handleErr = (err) => {
+  const detail =
+    err?.response?.data?.error ||
+    err?.response?.data?.msg ||
+    err?.message ||
+    "Request failed";
+  throw new Error(detail);
+};
 
-    async disconnectAccount() {
-        const response = await api.delete('/github/disconnect');
+const connectFn = async (payload) => {
+  try {
+    const body = typeof payload === "string" ? { github_username: payload } : payload;
+    const res = await axios.post(`${API_BASE}/connect`, body, getAuthConfig());
+    return res.data;
+  } catch (err) {
+    handleErr(err);
+  }
+};
 
-        return response.data;
-    },
+const disconnectFn = async () => {
+  try {
+    const res = await axios.delete(`${API_BASE}/disconnect`, getAuthConfig());
+    return res.data;
+  } catch (err) {
+    handleErr(err);
+  }
+};
 
-    async getRepositories() {
-        const response = await api.get('/github/repositories');
+const statusFn = async () => {
+  try {
+    const res = await axios.get(`${API_BASE}/status`, getAuthConfig());
+    return res.data;
+  } catch (err) {
+    handleErr(err);
+  }
+};
 
-        return response.data;
-    },
+const reposFn = async () => {
+  try {
+    const res = await axios.get(`${API_BASE}/repositories`, getAuthConfig());
+    return res.data;
+  } catch (err) {
+    handleErr(err);
+  }
+};
 
-    async getRepoCommits(owner, repo) {
-        const response = await api.get(
-            `/github/repositories/${owner}/${repo}/commits`
-        );
+const commitsFn = async (owner, repo) => {
+  try {
+    const res = await axios.get(
+      `${API_BASE}/repositories/${owner}/${repo}/commits`,
+      getAuthConfig()
+    );
+    return res.data;
+  } catch (err) {
+    handleErr(err);
+  }
+};
 
-        return response.data;
-    },
+const issuesFn = async () => {
+  try {
+    const res = await axios.get(`${API_BASE}/issues`, getAuthConfig());
+    return res.data;
+  } catch (err) {
+    handleErr(err);
+  }
+};
 
-    async getIssues() {
-        const response = await api.get('/github/issues');
+const pullsFn = async () => {
+  try {
+    const res = await axios.get(`${API_BASE}/pulls`, getAuthConfig());
+    return res.data;
+  } catch (err) {
+    handleErr(err);
+  }
+};
 
-        return response.data;
-    },
-
-    async getPullRequests() {
-        const response = await api.get('/github/pulls');
-
-        return response.data;
-    },
-
+export const githubService = {
+  getStatus: statusFn,
+  connect: connectFn,
+  connectAccount: connectFn,
+  disconnect: disconnectFn,
+  disconnectAccount: disconnectFn,
+  getRepositories: reposFn,
+  getRepoCommits: commitsFn,
+  getCommits: commitsFn,
+  getIssues: issuesFn,
+  getPullRequests: pullsFn,
 };
 
 export default githubService;
