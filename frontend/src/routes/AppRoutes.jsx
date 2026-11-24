@@ -11,7 +11,7 @@ import Tasks from "../pages/Tasks";
 import FocusTimer from "../pages/FocusTimer";
 import Notes from "../pages/Notes";
 import GitHubActivity from "../pages/GitHubActivity";
-import Analytics from "../pages/Analytics";
+import {Analytics} from "../pages/Analytics";
 import NotFound from "../pages/NotFound";
 
 const AppRoutes = () => {
@@ -35,7 +35,7 @@ const AppRoutes = () => {
         <Route path="/tasks" element={<Tasks />} />
         <Route path="/focus-timer" element={<FocusTimer />} />
         <Route path="/notes" element={<Notes />} />
-        <Route path="/github" element={<GitHubActivity />} />
+        <Route path="/github-activity" element={<GitHubActivity />} />
         <Route path="/analytics" element={<Analytics />} />
       </Route>
 
