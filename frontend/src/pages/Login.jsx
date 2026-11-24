@@ -1,3 +1,4 @@
+ FOC-3-dashboard-state-styling
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import Input from "../components/common/Input";
@@ -35,8 +36,3 @@ export default function Login() {
         <Input label="Email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@email.com" />
         <Input label="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
         <Button type="submit" disabled={submitting}>{submitting ? "Logging in..." : "Login"}</Button>
-        <p className="text-[#9CA3AF] text-sm mt-4">No account? <Link to="/register" className="text-[#22D3EE]">Register</Link></p>
-      </form>
-    </div>
-  );
-}

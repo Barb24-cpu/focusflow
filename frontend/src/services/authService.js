@@ -32,3 +32,6 @@ const authService = {
 };
 
 export default authService;
+
+// named exports too, so "import * as authService" works as well as the default import
+export const { register, login, logout, getCurrentUser } = authService;
