@@ -1,21 +1,61 @@
 // frontend/src/pages/Dashboard.jsx
 import { Link, useNavigate } from "react-router-dom";
 
-const stats = [
-  { label: "Tasks today", value: "08", sub: "2 completed today", active: true },
-  { label: "Overdue tasks", value: "02", sub: "Let's get these back on track", active: false },
-  { label: "Active projects", value: "04", sub: "2 deadlines this week", active: false },
-  { label: "Completed in 7 days", value: "18", sub: "6 more than the previous 7 days", active: false },
-];
 
 const priorities = [
-  { id: 1, title: "Build the project dashboard", meta: "FocusFlow / Design", priority: "High", due: "Today" },
-  { id: 2, title: "Connect task CRUD endpoints", meta: "FocusFlow / API", priority: "High", due: "Today" },
-  { id: 3, title: "Review database relationships", meta: "FocusFlow / Backend", priority: "Medium", due: "Nov 18" },
+  { id: 1, title: "Build the project dashboard", meta: "FocusFlow", status: "todo", dueDate: "2026-11-24" },
+  { id: 2, title: "Connect task CRUD endpoints", meta: "FocusFlow", status: "todo", dueDate: "2026-11-25" },
+  { id: 3, title: "Review database relationships", meta: "FocusFlow", status: "done", dueDate: "2026-11-23" },
 ];
 
 export default function Dashboard() {
   const navigate = useNavigate();
+
+  const getUserName = () => {
+
+    const all = { ...localStorage, ...sessionStorage };
+    for (const key of Object.keys(all)) {
+      try {
+        const val = JSON.parse(all[key]);
+        const obj = val?.user || val?.data?.user || val?.data || val;
+        const name = obj?.name || obj?.username || obj?.firstName || obj?.full_name;
+        if (name) return name.split(" ")[0];
+        if (obj?.email) return obj.email.split("@")[0];
+      } catch {}
+    }
+    
+    const token = localStorage.getItem("token") || localStorage.getItem("accessToken") || sessionStorage.getItem("token");
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split(".")[1]));
+        const name = payload.name || payload.username || payload.firstName || payload.email;
+        if (name) return name.split("@")[0].split(" ")[0];
+      } catch {}
+    }
+    return "there";
+  };
+  const userName = getUserName();
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+
+  const today = new Date().toISOString().slice(0, 10);
+const tasksToday = priorities.filter(p => p.dueDate === today || p.status !== "done").length;
+const overdueTasks = priorities.filter(p => p.dueDate < today && p.status !== "done").length;
+const activeProjects = new Set(priorities.map(p => p.meta)).size;
+const completed7Days = priorities.filter(p => p.status === "done").length;
+
+const stats = [
+  { label: "Tasks today", value: String(tasksToday).padStart(2, "0"), sub: `${completed7Days} completed` },
+  { label: "Overdue tasks", value: String(overdueTasks).padStart(2, "0"), sub: overdueTasks === 0 ? "All clear" : "Let's get these done" },
+  { label: "Active projects", value: String(activeProjects).padStart(2, "0"), sub: `${activeProjects} project in progress` },
+  { label: "Completed in 7 days", value: String(completed7Days).padStart(2, "0"), sub: "From your real tasks" },
+];
+const todayLabel = new Date().toLocaleDateString("en-US", {
+  weekday: "long",
+  month: "long",
+  day: "numeric",
+  year: "numeric",
+});
 
   return (
     <div style={{ minHeight: "100vh", background: "#F4F4F0", color: "#111", fontFamily: "Arial, sans-serif", margin: 0 }}>
@@ -33,6 +73,14 @@ export default function Dashboard() {
               <Link to="/projects" style={{ color: "#a1a1aa", textDecoration: "none" }}>Projects</Link>
               <Link to="/tasks" style={{ color: "#a1a1aa", textDecoration: "none" }}>Task board</Link>
               <Link to="/notes" style={{ color: "#a1a1aa", textDecoration: "none" }}>Personal workspace</Link>
+              <Link to="/github-activity" style={{ color: "#a1a1aa", textDecoration: "none", fontSize: "14px", display: "flex", alignItems: "center", gap: "5px" }}>
+                <span style={{ width: "8px", height: "8px", background: "#22c55e", borderRadius: "50%", display: "inline-block" }}></span>
+                  GitHub
+              </Link>
+              <Link to="/analytics" style={{ color: "#a1a1aa", textDecoration: "none", fontSize: "14px", display: "flex", alignItems: "center", gap: "5px" }}>
+               <span style={{ width: "8px", height: "8px", background: "#a78bfa", borderRadius: "50%", display: "inline-block" }}></span>
+                Analytics
+              </Link>
             </nav>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "16px", fontSize: "12px" }}>
@@ -44,8 +92,8 @@ export default function Dashboard() {
         {/* HERO */}
         <div style={{ maxWidth: "1100px", margin: "0 auto", padding: "40px 24px 64px", display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
           <div>
-            <p style={{ fontSize: "10px", letterSpacing: "2px", color: "#71717a", textTransform: "uppercase", margin: 0 }}>Tuesday, November 18, 2026</p>
-            <h1 style={{ fontSize: "48px", fontWeight: "bold", letterSpacing: "-1px", margin: "8px 0 0" }}>Good morning, Brian.</h1>
+            <p style={{ fontSize: "10px", letterSpacing: "2px", color: "#71717a", textTransform: "uppercase", margin: 0 }}>{todayLabel}</p>
+            <h1 style={{ fontSize: "48px", fontWeight: "bold", letterSpacing: "-1px", margin: "8px 0 0" }}>{greeting}, {userName}.</h1>
             <p style={{ color: "#a1a1aa", fontSize: "14px", marginTop: "8px" }}>A clear plan for a more focused day.</p>
           </div>
           <button onClick={() => navigate("/tasks?new=true")} style={{ background: "white", color: "black", fontSize: "12px", fontWeight: "600", padding: "8px 12px", border: "none", cursor: "pointer" }}>
@@ -65,6 +113,7 @@ export default function Dashboard() {
             </div>
           ))}
         </div>
+        
 
         {/* PRIORITIES + PROMO */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 280px", gap: "24px", marginTop: "40px", paddingBottom: "64px" }}>

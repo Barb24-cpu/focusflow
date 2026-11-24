@@ -1,20 +1,64 @@
 export default function Analytics() {
-  const stats = [
-    { label: "Tasks Done", value: "12" },
-    { label: "Focus Time", value: "4h 30m" },
-    { label: "Notes", value: "8" },
-    { label: "Streak", value: "3 days" },
-  ];
+const tasks = JSON.parse(localStorage.getItem("tasks") || "[]");
+const notes = JSON.parse(localStorage.getItem("notes") || "[]");
 
-  const bars = [
-    { day: "Mon", pct: 40 },
-    { day: "Tue", pct: 70 },
-    { day: "Wed", pct: 55 },
-    { day: "Thu", pct: 90 },
-    { day: "Fri", pct: 65 },
-    { day: "Sat", pct: 30 },
-    { day: "Sun", pct: 80 },
-  ];
+// 1. Tasks Done - real
+const tasksDone = tasks.filter((t) => t.completed || t.status === "done" || t.status === "completed").length;
+
+// 2. Notes - real
+const notesCount = notes.length;
+
+// 3. Focus Time - real from saved sessions, 0 if you haven't used timer yet
+const focusSessions = JSON.parse(localStorage.getItem("focusSessions") || "[]");
+const totalFocusMins = focusSessions.reduce((sum, s) => sum + (s.minutes || 0), 0);
+const focusLabel = `${Math.floor(totalFocusMins / 60)}h ${String(totalFocusMins % 60).padStart(2, "0")}m`;
+
+// 4. Streak - consecutive days with at least 1 task completed
+const doneDates = new Set(
+  tasks
+    .filter((t) => t.completed || t.status === "done")
+    .map((t) => (t.completedAt || t.updatedAt || t.dueDate || "").slice(0, 10))
+    .filter(Boolean)
+);
+let streak = 0;
+let d = new Date();
+while (doneDates.has(d.toISOString().slice(0, 10))) {
+  streak++;
+  d.setDate(d.getDate() - 1);
+}
+// if nothing today yet, check from yesterday so streak doesn't break mid-day
+if (streak === 0) {
+  d = new Date();
+  d.setDate(d.getDate() - 1);
+  while (doneDates.has(d.toISOString().slice(0, 10))) {
+    streak++;
+    d.setDate(d.getDate() - 1);
+  }
+}
+
+const stats = [
+  { label: "Tasks Done", value: String(tasksDone) },
+  { label: "Focus Time", value: focusLabel },
+  { label: "Notes", value: String(notesCount) },
+  { label: "Streak", value: `${streak} day${streak === 1 ? "" : "s"}` },
+];
+
+// 5. Bars - real: tasks completed per day, last 7 days (Mon-Sun)
+const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const counts = [0, 0, 0, 0, 0, 0, 0]; // Sun-Sat
+tasks.forEach((t) => {
+  if (t.completed || t.status === "done") {
+    const dateStr = (t.completedAt || t.updatedAt || t.dueDate || "").slice(0, 10);
+    if (dateStr) counts[new Date(dateStr).getDay()]++;
+  }
+});
+const maxCount = Math.max(...counts, 1);
+// Order Mon -> Sun for display
+const order = [1, 2, 3, 4, 5, 6, 0];
+const bars = order.map((dayIndex) => ({
+  day: dayNames[dayIndex],
+  pct: Math.round((counts[dayIndex] / maxCount) * 100),
+}));
 
   return (
     <div className="p-6 bg-[#0B0B12] min-h-screen">

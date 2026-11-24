@@ -10,10 +10,12 @@ export default function Login() {
 
     const handleLogin=async (e) => {
         e.preventDefault();
-        //later connect to Flask:POST,api/auth/login
-        //for now demo
-        localStorage.setItem("token", "demo-token");
-        navigate("/dashboard");
+        
+     localStorage.setItem("token", "demo-token");
+    const nameFromEmail = email.split("@")[0].replace(/[._-]/g, " ").replace(/\d+/g, "").trim();
+    const displayName = nameFromEmail.charAt(0).toUpperCase() + nameFromEmail.slice(1);
+    localStorage.setItem("user", JSON.stringify({ name: displayName, email: email }));
+    navigate("/dashboard");
     };
     
     return (
