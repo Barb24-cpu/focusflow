@@ -1,4 +1,5 @@
-// frontend/src/pages/Dashboard.jsx
+import { useAuth } from '../context/AuthContext';
+
 import { Link, useNavigate } from "react-router-dom";
 
 
@@ -9,9 +10,13 @@ const priorities = [
 ];
 
 export default function Dashboard() {
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
 
   const getUserName = () => {
+  if (user?.name) return user.name.split(' ')[0];
+  if (user?.email) return user.email.split('@')[0];
+
 
     const all = { ...localStorage, ...sessionStorage };
     for (const key of Object.keys(all)) {
@@ -84,8 +89,12 @@ const todayLabel = new Date().toLocaleDateString("en-US", {
             </nav>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "16px", fontSize: "12px" }}>
-            <Link to="/login" style={{ color: "#a1a1aa", textDecoration: "none" }}>Log in</Link>
-            <Link to="/register" style={{ background: "white", color: "black", padding: "6px 12px", fontWeight: "600", textDecoration: "none" }}>Create account</Link>
+            {user ? (
+              <><span style={{ fontSize: "14px", fontWeight: "600" }}>Hi, {getUserName()}</span><button onClick={logout} style={{ fontSize: "14px", background: "white", color: "black", padding: "6px 12px", fontWeight: "600", borderRadius: "6px", border: "none", cursor: "pointer" }}>Logout</button></>
+            ) : (
+              <><Link to="/login" style={{ color: "#a1a1aa", textDecoration: "none" }}>Log in</Link>
+                <Link to="/register" style={{ background: "white", color: "black", padding: "6px 12px", fontWeight: "600", textDecoration: "none" }}>Create account</Link></>
+            )}
           </div>
         </div>
 
