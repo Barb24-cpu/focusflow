@@ -1,5 +1,5 @@
 import { useAuth } from '../context/AuthContext';
-// frontend/src/pages/Dashboard.jsx
+
 import { Link, useNavigate } from "react-router-dom";
 
 
