@@ -2,6 +2,14 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import useAuth from "../hooks/useAuth";
 
+const passwordRules = [
+  { label: "At least 8 characters", test: (p) => p.length >= 8 },
+  { label: "One uppercase letter", test: (p) => /[A-Z]/.test(p) },
+  { label: "One lowercase letter", test: (p) => /[a-z]/.test(p) },
+  { label: "One number", test: (p) => /\d/.test(p) },
+  { label: "One special character (! @ # $ %)", test: (p) => /[^A-Za-z0-9\s]/.test(p) },
+];
+
 export default function Register() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -11,9 +19,17 @@ export default function Register() {
   const navigate = useNavigate();
   const { register } = useAuth();
 
+  const isStrong = passwordRules.every((rule) => rule.test(password));
+
   const handleRegister = async (e) => {
     e.preventDefault();
     setError("");
+
+    if (!isStrong) {
+      setError("Please choose a stronger password that meets all the rules below.");
+      return;
+    }
+
     setSubmitting(true);
     try {
       await register({ name, email, password });
@@ -37,9 +53,22 @@ export default function Register() {
             className="p-3 rounded bg-[#0B0B12] text-white border border-[#2A2A3D]" />
           <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@email.com"
             className="p-3 rounded bg-[#0B0B12] text-white border border-[#2A2A3D]" />
-          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password (8+ characters)"
+          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password"
             className="p-3 rounded bg-[#0B0B12] text-white border border-[#2A2A3D]" />
-          <button disabled={submitting} className="bg-[#22D3EE] text-black font-bold p-3 rounded disabled:opacity-60">
+
+          <ul className="flex flex-col gap-1 text-sm">
+            {passwordRules.map((rule) => {
+              const passed = rule.test(password);
+              return (
+                <li key={rule.label} className={passed ? "text-green-400" : "text-[#9CA3AF]"}>
+                  {passed ? "✓" : "○"} {rule.label}
+                </li>
+              );
+            })}
+          </ul>
+
+          <button disabled={submitting || !isStrong}
+            className="bg-[#22D3EE] text-black font-bold p-3 rounded disabled:opacity-60">
             {submitting ? "Creating account..." : "Register"}
           </button>
         </form>
