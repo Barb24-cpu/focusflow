@@ -1,169 +1,271 @@
-import { useAuth } from '../context/AuthContext';
+import { useMemo } from "react";
 
 import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../hooks/useAuth";
+import useTasks from "../hooks/useTasks";
+import AppHeader from "../components/layout/AppHeader";
 
+const LIME = "#C6F24E";
+const BORDER = "#e4e4e7";
+const MUTED = "#71717a";
 
-const priorities = [
-  { id: 1, title: "Build the project dashboard", meta: "FocusFlow", status: "todo", dueDate: "2026-11-24" },
-  { id: 2, title: "Connect task CRUD endpoints", meta: "FocusFlow", status: "todo", dueDate: "2026-11-25" },
-  { id: 3, title: "Review database relationships", meta: "FocusFlow", status: "done", dueDate: "2026-11-23" },
-];
+const dayKey = (d) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+const pad = (n) => String(n).padStart(2, "0");
+const PRIORITY_RANK = { high: 0, medium: 1, low: 2 };
+const PRIORITY_STYLE = {
+  high: { bg: "#fee2e2", fg: "#b91c1c" },
+  medium: { bg: "#fef3c7", fg: "#92400e" },
+  low: { bg: "#dcfce7", fg: "#166534" },
+};
+const BAR_COLORS = [LIME, "#a78bfa", "#22c55e", "#38bdf8"];
+
+function dueLabel(task, today) {
+  if (!task.dueDate) return "No date";
+  if (task.dueDate === today) return "Today";
+  if (task.dueDate < today) return "Overdue";
+  return new Date(task.dueDate + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function Ring({ value, total, color = "#111", size = 46 }) {
+  const r = 18, c = 2 * Math.PI * r;
+  const pct = total > 0 ? Math.min(1, value / total) : 0;
+  return (
+    <svg width={size} height={size} viewBox="0 0 44 44" aria-hidden="true">
+      <circle cx="22" cy="22" r={r} fill="none" stroke="#e4e4e7" strokeWidth="5" />
+      <circle cx="22" cy="22" r={r} fill="none" stroke={color} strokeWidth="5" strokeLinecap="round"
+        strokeDasharray={c} strokeDashoffset={c * (1 - pct)} transform="rotate(-90 22 22)" />
+    </svg>
+  );
+}
+
+function Bars({ values }) {
+  const max = Math.max(1, ...values);
+  return (
+    <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 34 }} aria-hidden="true">
+      {values.map((v, i) => (
+        <div key={i} style={{ width: 6, height: `${Math.max(12, (v / max) * 100)}%`, background: i === values.length - 1 ? "#111" : v ? "#a1a1aa" : "#e4e4e7" }} />
+      ))}
+    </div>
+  );
+}
+
+function StatCard({ to, label, value, sub, visual, danger }) {
+  return (
+    <Link to={to} className="ff-stat" style={{ padding: 20, textDecoration: "none", color: "#111", background: "white", display: "block" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+        <p style={{ fontSize: 12, color: MUTED, margin: 0 }}>{label}</p>
+        {visual}
+      </div>
+      <p style={{ fontSize: 34, fontWeight: 700, margin: "6px 0 0", color: danger ? "#dc2626" : "#111" }}>{value}</p>
+      <p style={{ fontSize: 11, color: MUTED, margin: "4px 0 0" }}>{sub}</p>
+    </Link>
+  );
+}
+
+const css = `
+.ff-stats{display:grid;grid-template-columns:repeat(4,1fr);background:white;border:1px solid ${BORDER}}
+.ff-stat{border-right:1px solid ${BORDER};transition:background .15s}
+.ff-stat:last-child{border-right:0}
+.ff-stat:hover{background:#fafaf5 !important}
+.ff-row{display:grid;grid-template-columns:1.6fr 1fr 1fr;gap:20px;margin-top:28px;padding-bottom:64px}
+.ff-task:hover{background:#fafaf5}
+@media (max-width:900px){.ff-stats{grid-template-columns:1fr 1fr}.ff-stat:nth-child(2){border-right:0}.ff-row{grid-template-columns:1fr}}
+@media (max-width:520px){.ff-stats{grid-template-columns:1fr}.ff-stat{border-right:0;border-bottom:1px solid ${BORDER}}}
+`;
 
 export default function Dashboard() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { tasks, loading, error, loadTasks, toggleComplete } = useTasks();
 
-  const getUserName = () => {
-  if (user?.name) return user.name.split(' ')[0];
-  if (user?.email) return user.email.split('@')[0];
+  const data = useMemo(() => {
+    const now = new Date();
+    const today = dayKey(now);
+    const open = tasks.filter((t) => t.status !== "done");
+    const dueToday = tasks.filter((t) => t.dueDate === today);
+    const overdue = open.filter((t) => t.dueDate && t.dueDate < today);
 
+    const week = Array.from({ length: 7 }, (_, i) => dayKey(addDays(now, i - 6)));
+    const perDay = week.map((k) => tasks.filter((t) => t.status === "done" && t.completedDate === k).length);
+    const prev = Array.from({ length: 7 }, (_, i) => dayKey(addDays(now, i - 13)));
+    const completed7 = perDay.reduce((a, b) => a + b, 0);
+    const completedPrev = tasks.filter((t) => t.status === "done" && prev.includes(t.completedDate)).length;
 
-    const all = { ...localStorage, ...sessionStorage };
-    for (const key of Object.keys(all)) {
-      try {
-        const val = JSON.parse(all[key]);
-        const obj = val?.user || val?.data?.user || val?.data || val;
-        const name = obj?.name || obj?.username || obj?.firstName || obj?.full_name;
-        if (name) return name.split(" ")[0];
-        if (obj?.email) return obj.email.split("@")[0];
-      } catch {}
-    }
-    
-    const token = localStorage.getItem("token") || localStorage.getItem("accessToken") || sessionStorage.getItem("token");
-    if (token) {
-      try {
-        const payload = JSON.parse(atob(token.split(".")[1]));
-        const name = payload.name || payload.username || payload.firstName || payload.email;
-        if (name) return name.split("@")[0].split(" ")[0];
-      } catch {}
-    }
-    return "there";
-  };
-  const userName = getUserName();
+    const byProject = {};
+    tasks.forEach((t) => {
+      if (!t.projectName) return;
+      const p = (byProject[t.projectName] ||= { name: t.projectName, total: 0, done: 0 });
+      p.total += 1;
+      if (t.status === "done") p.done += 1;
+    });
+    const projects = Object.values(byProject).sort((a, b) => (b.total - b.done) - (a.total - a.done));
+    const activeProjects = projects.filter((p) => p.done < p.total).length;
+
+    const priorities = [...open]
+      .sort((a, b) => {
+        const overdueA = a.dueDate && a.dueDate < today ? 0 : 1;
+        const overdueB = b.dueDate && b.dueDate < today ? 0 : 1;
+        const todayA = a.dueDate === today ? 0 : 1;
+        const todayB = b.dueDate === today ? 0 : 1;
+        return (
+          overdueA - overdueB || todayA - todayB ||
+          (PRIORITY_RANK[a.priority] ?? 1) - (PRIORITY_RANK[b.priority] ?? 1) ||
+          (a.dueDate || "9999").localeCompare(b.dueDate || "9999")
+        );
+      })
+      .slice(0, 5);
+
+    return {
+      today, dueToday, overdue, perDay, completed7, completedPrev, projects, activeProjects, priorities,
+      doneToday: dueToday.filter((t) => t.status === "done").length,
+    };
+  }, [tasks]);
+
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
-
-  const today = new Date().toISOString().slice(0, 10);
-const tasksToday = priorities.filter(p => p.dueDate === today || p.status !== "done").length;
-const overdueTasks = priorities.filter(p => p.dueDate < today && p.status !== "done").length;
-const activeProjects = new Set(priorities.map(p => p.meta)).size;
-const completed7Days = priorities.filter(p => p.status === "done").length;
-
-const stats = [
-  { label: "Tasks today", value: String(tasksToday).padStart(2, "0"), sub: `${completed7Days} completed` },
-  { label: "Overdue tasks", value: String(overdueTasks).padStart(2, "0"), sub: overdueTasks === 0 ? "All clear" : "Let's get these done" },
-  { label: "Active projects", value: String(activeProjects).padStart(2, "0"), sub: `${activeProjects} project in progress` },
-  { label: "Completed in 7 days", value: String(completed7Days).padStart(2, "0"), sub: "From your real tasks" },
-];
-const todayLabel = new Date().toLocaleDateString("en-US", {
-  weekday: "long",
-  month: "long",
-  day: "numeric",
-  year: "numeric",
-});
+  const firstName = (user?.name || user?.username || user?.email?.split("@")[0] || "there").split(" ")[0];
+  const todayLabel = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+  const diff = data.completed7 - data.completedPrev;
+  const focusTask = data.priorities[0];
 
   return (
-    <div style={{ minHeight: "100vh", background: "#F4F4F0", color: "#111", fontFamily: "Arial, sans-serif", margin: 0 }}>
-      
-      {/* TOP NAV */}
-      <header style={{ background: "#111", color: "white" }}>
-        <div style={{ maxWidth: "1100px", margin: "0 auto", padding: "0 24px", height: "56px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "32px" }}>
-            <Link to="/dashboard" style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: "bold", fontSize: "14px", color: "white", textDecoration: "none" }}>
-              <span style={{ width: "10px", height: "10px", background: "#C6F24E", display: "inline-block" }} />
-              FocusFlow
-            </Link>
-            <nav style={{ display: "flex", gap: "24px", fontSize: "12px" }}>
-              <Link to="/dashboard" style={{ color: "white", textDecoration: "none", borderBottom: "2px solid #C6F24E", paddingBottom: "4px" }}>Overview</Link>
-              <Link to="/projects" style={{ color: "#a1a1aa", textDecoration: "none" }}>Projects</Link>
-              <Link to="/tasks" style={{ color: "#a1a1aa", textDecoration: "none" }}>Task board</Link>
-              <Link to="/notes" style={{ color: "#a1a1aa", textDecoration: "none" }}>Personal workspace</Link>
-              <Link to="/github-activity" style={{ color: "#a1a1aa", textDecoration: "none", fontSize: "14px", display: "flex", alignItems: "center", gap: "5px" }}>
-                <span style={{ width: "8px", height: "8px", background: "#22c55e", borderRadius: "50%", display: "inline-block" }}></span>
-                  GitHub
-              </Link>
-              <Link to="/analytics" style={{ color: "#a1a1aa", textDecoration: "none", fontSize: "14px", display: "flex", alignItems: "center", gap: "5px" }}>
-               <span style={{ width: "8px", height: "8px", background: "#a78bfa", borderRadius: "50%", display: "inline-block" }}></span>
-                Analytics
-              </Link>
-            </nav>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "16px", fontSize: "12px" }}>
-            {user ? (
-              <><span style={{ fontSize: "14px", fontWeight: "600" }}>Hi, {getUserName()}</span><button onClick={logout} style={{ fontSize: "14px", background: "white", color: "black", padding: "6px 12px", fontWeight: "600", borderRadius: "6px", border: "none", cursor: "pointer" }}>Logout</button></>
-            ) : (
-              <><Link to="/login" style={{ color: "#a1a1aa", textDecoration: "none" }}>Log in</Link>
-                <Link to="/register" style={{ background: "white", color: "black", padding: "6px 12px", fontWeight: "600", textDecoration: "none" }}>Create account</Link></>
-            )}
-          </div>
-        </div>
+    <div style={{ minHeight: "100vh", background: "#F4F4F0", color: "#111", fontFamily: "Arial, sans-serif" }}>
+      <style>{css}</style>
 
-        {/* HERO */}
-        <div style={{ maxWidth: "1100px", margin: "0 auto", padding: "40px 24px 64px", display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+      <AppHeader bottomSpace={64}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
           <div>
-            <p style={{ fontSize: "10px", letterSpacing: "2px", color: "#71717a", textTransform: "uppercase", margin: 0 }}>{todayLabel}</p>
-            <h1 style={{ fontSize: "48px", fontWeight: "bold", letterSpacing: "-1px", margin: "8px 0 0" }}>{greeting}, {userName}.</h1>
-            <p style={{ color: "#a1a1aa", fontSize: "14px", marginTop: "8px" }}>A clear plan for a more focused day.</p>
+            <p style={{ fontSize: 10, letterSpacing: 2, color: MUTED, textTransform: "uppercase", margin: 0 }}>{todayLabel}</p>
+            <h1 style={{ fontSize: 44, fontWeight: 700, letterSpacing: -1, margin: "8px 0 0" }}>{greeting}, {firstName}.</h1>
+            <p style={{ color: "#a1a1aa", fontSize: 14, marginTop: 8 }}>A clear plan for a more focused day.</p>
           </div>
-          <button onClick={() => navigate("/tasks?new=true")} style={{ background: "white", color: "black", fontSize: "12px", fontWeight: "600", padding: "8px 12px", border: "none", cursor: "pointer" }}>
-            + New task
-          </button>
+          <div style={{ display: "flex", gap: 10 }}>
+            <button onClick={() => navigate("/projects")} style={{ background: "transparent", color: "white", fontSize: 12, fontWeight: 600, padding: "9px 14px", border: "1px solid #3f3f46", cursor: "pointer" }}>
+              Projects Board
+            </button>
+            <button onClick={() => navigate("/tasks?new=true")} style={{ background: LIME, color: "#111", fontSize: 12, fontWeight: 700, padding: "9px 14px", border: "none", cursor: "pointer" }}>
+              + New task
+            </button>
+          </div>
         </div>
-      </header>
+      </AppHeader>
 
-      {/* STATS */}
-      <main style={{ maxWidth: "1100px", margin: "0 auto", padding: "0 24px", marginTop: "-32px" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", background: "white", border: "1px solid #e4e4e7" }}>
-          {stats.map((s) => (
-            <div key={s.label} style={{ padding: "20px", background: s.active ? "#C6F24E" : "white", borderRight: "1px solid #e4e4e7" }}>
-              <p style={{ fontSize: "11px", color: "#71717a", margin: 0 }}>{s.label}</p>
-              <p style={{ fontSize: "30px", fontWeight: "bold", margin: "8px 0 0" }}>{s.value}</p>
-              <p style={{ fontSize: "11px", color: "#71717a", margin: "4px 0 0" }}>{s.sub}</p>
-            </div>
-          ))}
+      <main style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px", marginTop: -32 }}>
+        {error && (
+          <div role="alert" style={{ background: "#fee2e2", border: "1px solid #ef4444", color: "#991b1b", padding: "10px 14px", fontSize: 13, marginBottom: 16, display: "flex", justifyContent: "space-between", gap: 12 }}>
+            <span>{error}</span>
+            <button onClick={loadTasks} style={{ background: "none", border: "none", color: "#991b1b", textDecoration: "underline", cursor: "pointer", fontSize: 13 }}>Try again</button>
+          </div>
+        )}
+
+        {/* STATS: each card opens the matching list */}
+        <div className="ff-stats">
+          <StatCard to="/tasks?filter=today" label="Tasks today" value={loading ? "--" : pad(data.dueToday.length)}
+            sub={`${data.doneToday} completed`} visual={<Ring value={data.doneToday} total={data.dueToday.length} />} />
+          <StatCard to="/tasks?filter=overdue" label="Overdue tasks" value={loading ? "--" : pad(data.overdue.length)} danger={data.overdue.length > 0}
+            sub={data.overdue.length === 0 ? "All clear" : "Let's get these done"}
+            visual={<span style={{ fontSize: 22, color: data.overdue.length ? "#dc2626" : "#a1a1aa" }}>{data.overdue.length ? "▲" : "✓"}</span>} />
+          <StatCard to="/projects" label="Active projects" value={loading ? "--" : pad(data.activeProjects)}
+            sub={data.projects.length ? `Across ${data.projects.length} project${data.projects.length === 1 ? "" : "s"}` : "No projects yet"}
+            visual={<Ring value={data.projects.filter((p) => p.done === p.total).length} total={data.projects.length} color="#22c55e" />} />
+          <StatCard to="/tasks?filter=completed" label="Completed in 7 days" value={loading ? "--" : pad(data.completed7)}
+            sub={diff === 0 ? "Same as the previous 7 days" : `${Math.abs(diff)} ${diff > 0 ? "more" : "fewer"} than the previous 7 days`}
+            visual={<Bars values={data.perDay} />} />
         </div>
-        
 
-        {/* PRIORITIES + PROMO */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 280px", gap: "24px", marginTop: "40px", paddingBottom: "64px" }}>
+        <div className="ff-row">
+          {/* PRIORITIES */}
           <section>
             <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between" }}>
               <div>
-                <p style={{ fontSize: "10px", letterSpacing: "2px", color: "#71717a", textTransform: "uppercase", margin: 0 }}>One thing at a time</p>
-                <h2 style={{ fontSize: "20px", fontWeight: "bold", margin: "4px 0 0" }}>Your priorities today</h2>
+                <p style={{ fontSize: 10, letterSpacing: 2, color: MUTED, textTransform: "uppercase", margin: 0 }}>One thing at a time</p>
+                <h2 style={{ fontSize: 20, fontWeight: 700, margin: "4px 0 0" }}>Your priorities today</h2>
               </div>
-              <Link to="/tasks" style={{ fontSize: "12px", fontWeight: "600", color: "#111", textDecoration: "none" }}>View all tasks →</Link>
+              <Link to="/tasks" style={{ fontSize: 12, fontWeight: 600, color: "#111", textDecoration: "none" }}>View all tasks →</Link>
             </div>
-
-            <div style={{ marginTop: "16px", background: "white", border: "1px solid #e4e4e7" }}>
-              {priorities.map((t) => (
-                <div key={t.id} style={{ display: "grid", gridTemplateColumns: "1fr 90px 80px 20px", alignItems: "center", padding: "16px", borderBottom: "1px solid #e4e4e7" }}>
-                  <div style={{ display: "flex", gap: "12px", alignItems: "flex-start" }}>
-                    <input type="checkbox" style={{ marginTop: "4px", width: "16px", height: "16px" }} />
-                    <div>
-                      <p style={{ fontSize: "14px", fontWeight: "600", margin: 0 }}>{t.title}</p>
-                      <p style={{ fontSize: "11px", color: "#a1a1aa", margin: "2px 0 0" }}>{t.meta}</p>
-                    </div>
-                  </div>
-                  <span style={{ fontSize: "12px" }}>• {t.priority}</span>
-                  <span style={{ fontSize: "12px", color: "#71717a" }}>{t.due}</span>
-                  <button onClick={() => navigate(`/tasks/${t.id}`)} style={{ background: "none", border: "none", color: "#a1a1aa", cursor: "pointer", fontSize: "18px" }}>›</button>
+            <div style={{ marginTop: 14, background: "white", border: `1px solid ${BORDER}` }}>
+              {loading ? (
+                <p style={{ padding: 16, fontSize: 13, color: MUTED, margin: 0 }}>Loading your tasks...</p>
+              ) : data.priorities.length === 0 ? (
+                <div style={{ padding: 24, textAlign: "center" }}>
+                  <p style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>Nothing on your list</p>
+                  <p style={{ fontSize: 12, color: MUTED, margin: "4px 0 12px" }}>Add a task to plan your day.</p>
+                  <button onClick={() => navigate("/tasks?new=true")} style={{ background: "#111", color: "white", border: "none", padding: "8px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>+ New task</button>
                 </div>
-              ))}
+              ) : (
+                data.priorities.map((t) => {
+                  const p = PRIORITY_STYLE[t.priority] || PRIORITY_STYLE.medium;
+                  const late = t.dueDate && t.dueDate < data.today;
+                  return (
+                    <div key={t.id} className="ff-task" style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderBottom: `1px solid ${BORDER}` }}>
+                      <input type="checkbox" checked={t.status === "done"} onChange={() => toggleComplete(t)} aria-label={`Mark "${t.title}" as done`} style={{ width: 16, height: 16, cursor: "pointer" }} />
+                      <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => navigate(`/tasks/${t.id}`)}>
+                        <p style={{ fontSize: 14, fontWeight: 600, margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.title}</p>
+                        {t.projectName && <p style={{ fontSize: 11, color: "#a1a1aa", margin: "2px 0 0" }}>{t.projectName}</p>}
+                      </div>
+                      <span style={{ background: p.bg, color: p.fg, fontSize: 11, fontWeight: 600, padding: "2px 8px", textTransform: "capitalize" }}>{t.priority}</span>
+                      <span style={{ fontSize: 12, color: late ? "#dc2626" : MUTED, minWidth: 52, textAlign: "right", fontWeight: late ? 600 : 400 }}>{dueLabel(t, data.today)}</span>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </section>
 
-          {/* PROMO CARD */}
-          <aside style={{ background: "#111", color: "white", padding: "20px", minHeight: "220px", display: "flex", flexDirection: "column", justifyContent: "space-between", position: "relative", overflow: "hidden" }}>
-            <div style={{ width: "32px", height: "32px", background: "#C6F24E", display: "flex", alignItems: "center", justifyContent: "center", color: "black", fontWeight: "bold" }}>◎</div>
-            <div style={{ marginTop: "40px" }}>
-              <p style={{ fontSize: "9px", letterSpacing: "2px", textTransform: "uppercase", color: "#a1a1aa", margin: 0 }}>Keep the important things moving</p>
-              <p style={{ fontWeight: "bold", fontSize: "18px", lineHeight: "1.3", marginTop: "8px" }}>Turn a task into 25 minutes of progress.</p>
+          {/* FOCUS SESSION */}
+          <aside style={{ background: "#111", color: "white", padding: 20, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "space-between", minHeight: 280 }}>
+            <p style={{ fontSize: 9, letterSpacing: 2, textTransform: "uppercase", color: "#a1a1aa", margin: 0, alignSelf: "flex-start" }}>Focus session</p>
+            <div style={{ position: "relative", width: 132, height: 132, margin: "14px 0" }}>
+              <svg viewBox="0 0 100 100" width="132" height="132" style={{ transform: "rotate(-90deg)" }} aria-hidden="true">
+                <circle cx="50" cy="50" r="44" fill="none" stroke="#27272a" strokeWidth="6" />
+                <circle cx="50" cy="50" r="44" fill="none" stroke={LIME} strokeWidth="6" strokeLinecap="round" strokeDasharray="276.5" strokeDashoffset="69" />
+              </svg>
+              <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+                <span style={{ fontSize: 28, fontWeight: 700 }}>25:00</span>
+                <span style={{ fontSize: 10, color: "#a1a1aa" }}>Ready to focus</span>
+              </div>
             </div>
-            <button onClick={() => navigate("/focusTimer")} style={{ marginTop: "16px", textAlign: "left", fontSize: "12px", background: "none", border: "none", color: "white", textDecoration: "underline", cursor: "pointer", padding: 0 }}>
-              Start a focus session →
+            <p style={{ fontSize: 12, color: "#a1a1aa", margin: "0 0 12px", textAlign: "center" }}>
+              {focusTask ? <>Next up: <span style={{ color: "white" }}>{focusTask.title}</span></> : "Turn a task into 25 minutes of progress."}
+            </p>
+            <button onClick={() => navigate("/focusTimer")} style={{ width: "100%", background: LIME, color: "#111", border: "none", padding: "11px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+              Start session
             </button>
           </aside>
+
+          {/* ACTIVE PROJECTS */}
+          <section style={{ background: "white", border: `1px solid ${BORDER}`, padding: 20 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>Active projects</h2>
+              <Link to="/projects" style={{ fontSize: 12, fontWeight: 600, color: "#111", textDecoration: "none" }}>All →</Link>
+            </div>
+            {loading ? (
+              <p style={{ fontSize: 13, color: MUTED }}>Loading...</p>
+            ) : data.projects.length === 0 ? (
+              <p style={{ fontSize: 13, color: MUTED, marginTop: 16 }}>Give a task a project and its progress shows up here.</p>
+            ) : (
+              <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 18 }}>
+                {data.projects.slice(0, 4).map((p, i) => {
+                  const pct = p.total ? Math.round((p.done / p.total) * 100) : 0;
+                  return (
+                    <Link key={p.name} to="/projects" style={{ textDecoration: "none", color: "#111" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 6 }}>
+                        <span style={{ fontWeight: 600 }}>{p.name}</span>
+                        <span style={{ color: MUTED }}>{pct}%</span>
+                      </div>
+                      <div style={{ height: 8, background: "#f4f4f5" }}>
+                        <div style={{ height: 8, width: `${pct}%`, background: BAR_COLORS[i % BAR_COLORS.length] }} />
+                      </div>
+                      <p style={{ fontSize: 11, color: "#a1a1aa", margin: "4px 0 0" }}>{p.done} of {p.total} tasks done</p>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </section>
         </div>
       </main>
     </div>

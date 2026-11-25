@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import api from '../services/api';
 import projectService from '../services/projectService';
 
@@ -8,6 +8,13 @@ const getTodayISO = () => {
   const offset = now.getTimezoneOffset();
   const local = new Date(now.getTime() - offset * 60000);
   return local.toISOString().split('T')[0];
+};
+
+const FILTER_TO_TAB = {
+  today: 'today',
+  overdue: 'overdue',
+  upcoming: 'upcoming',
+  completed: 'completed',
 };
 
 const PRIORITY_PILL = {
@@ -29,7 +36,11 @@ export default function Tasks() {
   const [dueDate, setDueDate] = useState(getTodayISO());
   const [projectId, setProjectId] = useState('');
   const [division, setDivision] = useState('General');
-  const [activeTab, setActiveTab] = useState('today'); // 'today' | 'upcoming' | 'completed'
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(
+    FILTER_TO_TAB[searchParams.get('filter')] || 'today'
+  ); // 'today' | 'overdue' | 'upcoming' | 'completed'
+  const titleInputRef = useRef(null);
 
   const todayStr = useMemo(() => getTodayISO(), []);
 
@@ -68,6 +79,16 @@ export default function Tasks() {
   useEffect(() => {
     loadData();
   }, []);
+
+  // React to the address bar: ?filter=overdue opens that tab, ?new=true focuses the Task Bar
+  useEffect(() => {
+    const tab = FILTER_TO_TAB[searchParams.get('filter')];
+    if (tab) setActiveTab(tab);
+    if (searchParams.get('new') === 'true') {
+      titleInputRef.current?.focus();
+      titleInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [searchParams]);
 
   const handleProjectChange = (nextId) => {
     setProjectId(nextId);
@@ -305,12 +326,16 @@ export default function Tasks() {
           <div className="flex items-center gap-4 text-xs font-semibold">
             {[
               { id: 'today', label: "Today's Focus" },
+              { id: 'overdue', label: 'Overdue' },
               { id: 'upcoming', label: 'Upcoming' },
               { id: 'completed', label: 'Completed' },
             ].map((t) => (
               <button
                 key={t.id}
-                onClick={() => setActiveTab(t.id)}
+                onClick={() => {
+                  setActiveTab(t.id);
+                  setSearchParams(t.id === 'today' ? {} : { filter: t.id }, { replace: true });
+                }}
                 className={`pb-1.5 border-b-2 transition ${
                   activeTab === t.id
                     ? 'border-cyan-400 text-white'
@@ -399,6 +424,7 @@ export default function Tasks() {
             <input
               type="text"
               value={title}
+              ref={titleInputRef}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Enter task title..."
               className="w-full bg-[#0B0B12] border border-[#2A2A3D] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-400"
@@ -522,6 +548,14 @@ export default function Tasks() {
               )}
             </div>
           </div>
+        </div>
+      ) : activeTab === 'overdue' ? (
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {overdueTasks.length === 0 ? (
+            <p className="text-xs text-[#9CA3AF]">No overdue tasks. Nice work!</p>
+          ) : (
+            overdueTasks.map((t) => renderTaskCard(t, 'overdue'))
+          )}
         </div>
       ) : activeTab === 'upcoming' ? (
         <div className="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
