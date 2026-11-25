@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import useTasks from "../hooks/useTasks";
@@ -75,6 +76,7 @@ const css = `
 `;
 
 export default function Dashboard() {
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const { user } = useAuth();
   const { tasks, loading, error, loadTasks, toggleComplete } = useTasks();

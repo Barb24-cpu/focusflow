@@ -1,31 +1,38 @@
+// frontend/src/services/api.js
+import axios from "axios";
 
-import axios from 'axios';
-import { API_BASE_URL } from '../utils/constants';
+const API_BASE_URL = `http://${window.location.hostname}:5000/api`;
 
-// Create main axios instance
 const api = axios.create({
-    baseURL: API_BASE_URL,
-    withCredentials: true, // Needed so Flask HttpOnly cookies get sent automatically
-    headers: {
-        'Content-Type': 'application/json',
-    },
+  baseURL: API_BASE_URL,
+  withCredentials: true,
+  headers: {
+    "Content-Type": "application/json",
+  },
 });
 
-// Intercept responses to handle global errors like 401 Unauthorized
+api.interceptors.request.use((config) => {
+  const token =
+    localStorage.getItem("token") ||
+    localStorage.getItem("access_token") ||
+    sessionStorage.getItem("token");
+
+  if (token && !config.headers.Authorization) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
 api.interceptors.response.use(
-    (response) => {
-        return response;
-    },
-
-    (error) => {
-        // Extract error message from Flask JSON format: { "error": "..." }
-        const message =
-            error.response?.data?.error ||
-            error.message ||
-            'Something went wrong connecting to the server.';
-
-        return Promise.reject(new Error(message));
-    }
+  (response) => response,
+  (error) => {
+    const message =
+      error.response?.data?.error ||
+      error.response?.data?.message ||
+      error.message ||
+      "Request failed";
+    return Promise.reject(new Error(message));
+  },
 );
 
 export default api;

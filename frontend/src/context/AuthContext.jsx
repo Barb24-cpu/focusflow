@@ -1,6 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import {
   createContext,
+  useContext,
   useCallback,
   useEffect,
   useMemo,
@@ -10,6 +11,10 @@ import * as authService from "../services/authService";
 
 
 export const AuthContext = createContext(null);
+
+export function useAuth() {
+  return useContext(AuthContext);
+}
 
 // Turn an Axios error into a friendly Error the forms can show.
 function toError(err, fallback) {
