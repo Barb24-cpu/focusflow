@@ -1,119 +1,95 @@
+// frontend/src/services/githubService.js
 import axios from "axios";
 
-const API_BASE = "http://localhost:5000/api/github";
+const API_BASE = `http://${window.location.hostname}:5000/api/github`;
 
-const findJwtToken = () => {
-  for (const store of [localStorage, sessionStorage]) {
-    for (let i = 0; i < store.length; i++) {
-      const val = store.getItem(store.key(i));
-      if (val && val.startsWith("eyJ") && val.split(".").length === 3) {
-        return val.replace(/^"|"$/g, "");
-      }
-      try {
-        const parsed = JSON.parse(val);
-        const nested = parsed?.token || parsed?.access_token || parsed?.jwt;
-        if (nested && nested.startsWith("eyJ")) return nested;
-      } catch {}
-    }
+const githubClient = axios.create({
+  baseURL: API_BASE,
+  withCredentials: true,
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+
+githubClient.interceptors.request.use((config) => {
+  const token =
+    localStorage.getItem("token") ||
+    localStorage.getItem("access_token") ||
+    sessionStorage.getItem("token");
+
+  if (token && !config.headers.Authorization) {
+    config.headers.Authorization = `Bearer ${token}`;
   }
-  return null;
-};
+  return config;
+});
 
-const getAuthConfig = () => {
-  const token = findJwtToken();
-  return {
-    withCredentials: true,
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  };
-};
+githubClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const message =
+      error.response?.data?.error ||
+      error.response?.data?.message ||
+      error.message ||
+      "Something went wrong communicating with the GitHub service.";
+    return Promise.reject(new Error(message));
+  },
+);
 
-const handleErr = (err) => {
-  const detail =
-    err?.response?.data?.error ||
-    err?.response?.data?.msg ||
-    err?.message ||
-    "Request failed";
-  throw new Error(detail);
-};
-
-const connectFn = async (payload) => {
-  try {
-    const body = typeof payload === "string" ? { github_username: payload } : payload;
-    const res = await axios.post(`${API_BASE}/connect`, body, getAuthConfig());
-    return res.data;
-  } catch (err) {
-    handleErr(err);
+function normalizeConnectPayload(payload) {
+  if (typeof payload === "string") {
+    return { github_username: payload.trim() };
   }
-};
-
-const disconnectFn = async () => {
-  try {
-    const res = await axios.delete(`${API_BASE}/disconnect`, getAuthConfig());
-    return res.data;
-  } catch (err) {
-    handleErr(err);
+  if (payload && typeof payload === "object") {
+    return {
+      ...payload,
+      github_username: (
+        payload.github_username ||
+        payload.username ||
+        ""
+      ).trim(),
+    };
   }
-};
-
-const statusFn = async () => {
-  try {
-    const res = await axios.get(`${API_BASE}/status`, getAuthConfig());
-    return res.data;
-  } catch (err) {
-    handleErr(err);
-  }
-};
-
-const reposFn = async () => {
-  try {
-    const res = await axios.get(`${API_BASE}/repositories`, getAuthConfig());
-    return res.data;
-  } catch (err) {
-    handleErr(err);
-  }
-};
-
-const commitsFn = async (owner, repo) => {
-  try {
-    const res = await axios.get(
-      `${API_BASE}/repositories/${owner}/${repo}/commits`,
-      getAuthConfig()
-    );
-    return res.data;
-  } catch (err) {
-    handleErr(err);
-  }
-};
-
-const issuesFn = async () => {
-  try {
-    const res = await axios.get(`${API_BASE}/issues`, getAuthConfig());
-    return res.data;
-  } catch (err) {
-    handleErr(err);
-  }
-};
-
-const pullsFn = async () => {
-  try {
-    const res = await axios.get(`${API_BASE}/pulls`, getAuthConfig());
-    return res.data;
-  } catch (err) {
-    handleErr(err);
-  }
-};
+  return { github_username: "" };
+}
 
 export const githubService = {
-  getStatus: statusFn,
-  connect: connectFn,
-  connectAccount: connectFn,
-  disconnect: disconnectFn,
-  disconnectAccount: disconnectFn,
-  getRepositories: reposFn,
-  getRepoCommits: commitsFn,
-  getCommits: commitsFn,
-  getIssues: issuesFn,
-  getPullRequests: pullsFn,
+  async getStatus() {
+    const response = await githubClient.get("/status");
+    return response.data;
+  },
+
+  async connectAccount(payload) {
+    const body = normalizeConnectPayload(payload);
+    const response = await githubClient.post("/connect", body);
+    return response.data;
+  },
+
+  async disconnectAccount() {
+    const response = await githubClient.delete("/disconnect");
+    return response.data;
+  },
+
+  async getRepositories() {
+    const response = await githubClient.get("/repositories");
+    return response.data;
+  },
+
+  async getRepoCommits(owner, repo) {
+    const response = await githubClient.get(
+      `/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/commits`,
+    );
+    return response.data;
+  },
+
+  async getIssues() {
+    const response = await githubClient.get("/issues");
+    return response.data;
+  },
+
+  async getPullRequests() {
+    const response = await githubClient.get("/pulls");
+    return response.data;
+  },
 };
 
 export default githubService;

@@ -1,13 +1,16 @@
 import { Navigate } from "react-router-dom";
+import useAuth from "../../hooks/useAuth";
 
 export default function ProtectedRoute({ children }) {
-  const token = localStorage.getItem("token");
+  const { isAuthenticated, loading } = useAuth();
 
-  // If no token, user is not logged in - send to /login
-  if (!token) {
+  if (loading) {
+    return null;
+  }
+
+  if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
 
-  // If logged in, show the page
   return children;
 }
