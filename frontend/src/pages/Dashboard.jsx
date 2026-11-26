@@ -78,7 +78,7 @@ const css = `
 export default function Dashboard() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  //const { user } = useAuth();
   const { tasks, loading, error, loadTasks, toggleComplete } = useTasks();
 
   const data = useMemo(() => {
